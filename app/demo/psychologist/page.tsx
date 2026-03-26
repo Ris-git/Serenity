@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import { useState } from 'react'
+import { mockStudents } from '@/lib/mock-data'
 
 type Status = 'improving' | 'stable' | 'needs-care'
 
@@ -21,31 +21,25 @@ const statusClass: Record<Status, string> = {
 export default function PsychologistDashboard() {
     const [search, setSearch] = useState('')
     const [filter, setFilter] = useState<'all' | Status>('all')
-    const [userName, setUserName] = useState<string>('Doctor')
-    const supabase = createClient()
-
-    useEffect(() => {
-        const getUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const name = user.user_metadata?.full_name?.split(' ')[0] || 'Doctor'
-                setUserName(name)
-            }
-        }
-        getUser()
-    }, [supabase])
 
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-    const filtered: any[] = [] // Empty for real users initially
-    const needsCare = 0
-    const upcomingToday = 0
+
+    const filtered = mockStudents.filter(s => {
+        const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
+            s.email.toLowerCase().includes(search.toLowerCase())
+        const matchesFilter = filter === 'all' || s.status === filter
+        return matchesSearch && matchesFilter
+    })
+
+    const needsCare = mockStudents.filter(s => s.status === 'needs-care').length
+    const upcomingToday = mockStudents.filter(s => s.nextSession === '2026-03-13').length
 
     return (
         <div style={{ maxWidth: '960px' }}>
             {/* Header */}
             <div style={{ marginBottom: '40px' }}>
                 <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 400, marginBottom: '6px' }}>
-                    Good morning, Dr. {userName}.
+                    Good morning, Dr. Williams.
                 </h1>
                 <p style={{ color: 'var(--color-soft-gray)', fontWeight: 300 }}>{today}</p>
             </div>
@@ -53,8 +47,8 @@ export default function PsychologistDashboard() {
             {/* Summary cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '40px' }} className="stagger-children">
                 {[
-                    { label: 'Assigned students', value: filtered.length, emoji: '👤', status: null },
-                    { label: 'Sessions today', value: upcomingToday, emoji: '📅', status: null },
+                    { label: 'Assigned students', value: mockStudents.length, emoji: '👤', status: null },
+                    { label: 'Sessions today', value: upcomingToday || 1, emoji: '📅', status: null },
                     { label: 'Needs attention', value: needsCare, emoji: '💙', status: 'care' },
                 ].map((item, i) => (
                     <div key={i} className="card animate-fade-up" style={{
@@ -93,7 +87,7 @@ export default function PsychologistDashboard() {
 
             {/* Student cards */}
             <div className="stagger-children" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {filtered.map((student: any) => (
+                {filtered.map(student => (
                     <Link
                         key={student.id}
                         href={`/psychologist/students/${student.id}`}
@@ -108,15 +102,15 @@ export default function PsychologistDashboard() {
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: '1.1rem', fontFamily: 'var(--font-display)', color: 'white', fontWeight: 400,
                                 }}>
-                                    {student.name.split(' ').map((n: string) => n[0]).join('')}
+                                    {student.name.split(' ').map(n => n[0]).join('')}
                                 </div>
 
                                 {/* Info */}
                                 <div style={{ flex: 1 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
                                         <p style={{ fontWeight: 500 }}>{student.name}</p>
-                                        <span className={`status-tag ${statusClass[student.status as Status]}`}>
-                                            {statusLabel[student.status as Status]}
+                                        <span className={`status-tag ${statusClass[student.status]}`}>
+                                            {statusLabel[student.status]}
                                         </span>
                                     </div>
                                     <p style={{ color: 'var(--color-soft-gray)', fontSize: 'var(--text-sm)', fontWeight: 300 }}>
@@ -142,15 +136,9 @@ export default function PsychologistDashboard() {
                     </Link>
                 ))}
                 {filtered.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '60px 24px', color: 'var(--color-soft-gray)' }}>
-                        <span style={{ fontSize: '3rem', display: 'block', marginBottom: '16px' }}>👥</span>
-                        <h3 style={{ fontFamily: 'var(--font-display)', fontWeight: 400, fontSize: 'var(--text-lg)', marginBottom: '8px', color: 'var(--color-charcoal)' }}>
-                            No students assigned yet
-                        </h3>
-                        <p style={{ fontWeight: 300, lineHeight: 1.6, maxWidth: '400px', margin: '0 auto' }}>
-                            Students matched to your care team will appear here automatically.
-                        </p>
-                    </div>
+                    <p style={{ textAlign: 'center', color: 'var(--color-soft-gray)', padding: '40px', fontWeight: 300 }}>
+                        No students match your search.
+                    </p>
                 )}
             </div>
         </div>

@@ -41,9 +41,9 @@ export default function LoginPage() {
     }
 
     const demoAccounts = [
-        { role: 'student', label: 'Student demo', emoji: '🎓', path: '/student' },
-        { role: 'psychologist', label: 'Psychologist demo', emoji: '🌿', path: '/psychologist' },
-        { role: 'admin', label: 'Admin demo', emoji: '📊', path: '/admin' },
+        { role: 'student', label: 'Student demo', emoji: '🎓', path: '/demo/student' },
+        { role: 'psychologist', label: 'Psychologist demo', emoji: '🌿', path: '/demo/psychologist' },
+        { role: 'admin', label: 'Admin demo', emoji: '📊', path: '/demo/admin' },
     ]
 
     return (

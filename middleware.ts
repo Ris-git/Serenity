@@ -24,8 +24,8 @@ export async function middleware(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     const path = request.nextUrl.pathname
 
-    // Always allow auth pages and the landing page
-    if (path.startsWith('/auth') || path === '/') return supabaseResponse
+    // Always allow auth pages, the landing page, and the public demo routes
+    if (path.startsWith('/auth') || path.startsWith('/demo') || path === '/') return supabaseResponse
 
     // Redirect unauthenticated users to login
     if (!user) return NextResponse.redirect(new URL('/auth/login', request.url))

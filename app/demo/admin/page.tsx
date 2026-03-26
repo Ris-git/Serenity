@@ -1,28 +1,12 @@
 'use client'
 
+import { mockAdminMetrics } from '@/lib/mock-data'
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     BarChart, Bar,
 } from 'recharts'
 
-const metrics = {
-    totalActiveStudents: 0,
-    sessionAttendanceRate: 0,
-    weeklyReflectionsCompleted: 0,
-    platformEngagementRate: 0,
-    avgSessionsPerStudent: 0,
-    newStudentsThisMonth: 0,
-    engagementTrend: [
-        { week: 'W1', rate: 0 }, { week: 'W2', rate: 0 }, { week: 'W3', rate: 0 },
-        { week: 'W4', rate: 0 }, { week: 'W5', rate: 0 }, { week: 'W6', rate: 0 },
-        { week: 'W7', rate: 0 }, { week: 'W8', rate: 0 }, { week: 'W9', rate: 0 },
-        { week: 'W10', rate: 0 }
-    ],
-    sessionsByWeek: [
-        { week: 'W1', count: 0 }, { week: 'W2', count: 0 }, { week: 'W3', count: 0 },
-        { week: 'W4', count: 0 }, { week: 'W5', count: 0 }, { week: 'W6', count: 0 }
-    ]
-}
+const metrics = mockAdminMetrics
 
 function MetricCard({ label, value, unit, emoji, note }: {
     label: string; value: number; unit?: string; emoji: string; note?: string

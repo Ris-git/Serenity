@@ -14,7 +14,7 @@ const categoryEmoji: Record<string, string> = {
 }
 
 export default function GoalsPage() {
-    const [goals, setGoals] = useState<Goal[]>([])
+    const [goals, setGoals] = useState(mockGoals)
     const [showForm, setShowForm] = useState(false)
     const [newGoal, setNewGoal] = useState({ title: '', description: '', category: 'wellbeing', isPrivate: true })
 
