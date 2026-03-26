@@ -6,9 +6,6 @@ import { createClient } from '@/lib/supabase/client'
 
 const moods = ['😔', '😕', '😐', '🙂', '😊']
 
-// Hardcoded demo user ID
-const STUDENT_ID = '11111111-1111-1111-1111-111111111111'
-
 function getWeekStart() {
     const d = new Date()
     const day = d.getDay()
@@ -22,54 +19,61 @@ export default function ReflectionPage() {
     const [answers, setAnswers] = useState<Record<string, { mood?: number; text: string }>>({})
     const [submitted, setSubmitted] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
+    const [userId, setUserId] = useState<string | null>(null)
     const supabase = createClient()
+
+
 
     const question = mockReflectionQuestions[currentQ]
     const total = mockReflectionQuestions.length
     const current = answers[question?.id] || { text: '' }
 
-    // Fetch existing reflection for the week
+    // Get current user and fetch their existing reflection
     useEffect(() => {
-        const fetchExisting = async () => {
+        const init = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+            setUserId(user.id)
+
             const { data } = await supabase
                 .from('reflections')
                 .select('*')
-                .eq('student_id', STUDENT_ID)
+                .eq('student_id', user.id)
                 .eq('week_start', getWeekStart())
                 .single()
-            
+
             if (data?.answers) {
                 setAnswers(data.answers)
                 setSubmitted(data.submitted)
             }
         }
-        fetchExisting()
+        init()
     }, [supabase])
 
     // Auto-save on answer change
     useEffect(() => {
-        if (Object.keys(answers).length === 0) return
+        if (Object.keys(answers).length === 0 || !userId) return
 
         setIsSaving(true)
         const timer = setTimeout(async () => {
             await supabase.from('reflections').upsert({
-                student_id: STUDENT_ID,
+                student_id: userId,
                 week_start: getWeekStart(),
                 answers: answers,
-                submitted: submitted, // keep current submitted state unless explicitly changed
+                submitted: submitted,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'student_id, week_start' })
             setIsSaving(false)
         }, 800)
 
         return () => clearTimeout(timer)
-    }, [answers, submitted, supabase])
+    }, [answers, submitted, supabase, userId])
 
     const handleFinalSubmit = async () => {
+        if (!userId) return
         setSubmitted(true)
-        // Ensure final explicit save
         await supabase.from('reflections').upsert({
-            student_id: STUDENT_ID,
+            student_id: userId,
             week_start: getWeekStart(),
             answers: answers,
             submitted: true,

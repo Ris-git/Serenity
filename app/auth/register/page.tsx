@@ -2,11 +2,54 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 export default function RegisterPage() {
     const [step, setStep] = useState(1)
     const [agreed, setAgreed] = useState(false)
     const [form, setForm] = useState({ name: '', email: '', password: '', role: 'student' })
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<string | null>(null)
+    const router = useRouter()
+    const supabase = createClient()
+
+    const handleSubmit = async () => {
+        if (!agreed) return
+        setLoading(true)
+        setError(null)
+
+        const { data, error: signUpError } = await supabase.auth.signUp({
+            email: form.email,
+            password: form.password,
+        })
+
+        if (signUpError || !data.user) {
+            setError(signUpError?.message || 'Sign up failed. Please try again.')
+            setLoading(false)
+            return
+        }
+
+        const { error: profileError } = await supabase.from('profiles').insert({
+            id: data.user.id,
+            full_name: form.name,
+            email: form.email,
+            role: form.role,
+        })
+
+        if (profileError) {
+            setError('Account created but profile setup failed. Please contact support.')
+            setLoading(false)
+            return
+        }
+
+        const roleRoutes: Record<string, string> = {
+            student: '/student',
+            psychologist: '/psychologist',
+            trainee: '/psychologist',
+        }
+        router.push(roleRoutes[form.role] || '/student')
+    }
 
     return (
         <div style={{
@@ -18,7 +61,6 @@ export default function RegisterPage() {
             background: 'var(--color-cream)',
         }}>
             <div className="animate-fade-up" style={{ width: '100%', maxWidth: '480px' }}>
-                {/* Progress dots */}
                 <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '40px' }}>
                     {[1, 2].map(s => (
                         <div key={s} style={{
@@ -40,19 +82,12 @@ export default function RegisterPage() {
                 }}>
                     {step === 1 && (
                         <>
-                            <h2 style={{
-                                fontFamily: 'var(--font-display)',
-                                fontSize: '1.75rem',
-                                fontWeight: 400,
-                                marginBottom: '8px',
-                                color: 'var(--color-charcoal-dark)',
-                            }}>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400, marginBottom: '8px', color: 'var(--color-charcoal-dark)' }}>
                                 Let&apos;s get you set up
                             </h2>
                             <p style={{ color: 'var(--color-soft-gray)', marginBottom: '32px', fontWeight: 300 }}>
                                 Use your university email — this keeps your account verified and your data safe.
                             </p>
-
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                 <div>
                                     <label className="label">Full name</label>
@@ -71,17 +106,21 @@ export default function RegisterPage() {
                                 </div>
                                 <div>
                                     <label className="label">I am a…</label>
-                                    <select className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}
-                                        style={{ cursor: 'pointer' }}>
+                                    <select className="input" value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} style={{ cursor: 'pointer' }}>
                                         <option value="student">Student</option>
                                         <option value="psychologist">Psychologist / Counselor</option>
                                         <option value="trainee">Psychology trainee (supervised)</option>
                                     </select>
                                 </div>
+                                {error && <p style={{ color: '#c0392b', fontSize: 'var(--text-sm)', textAlign: 'center' }}>{error}</p>}
                                 <button
                                     className="btn btn-primary"
                                     style={{ marginTop: '8px', justifyContent: 'center' }}
-                                    onClick={() => setStep(2)}
+                                    onClick={() => {
+                                        if (!form.name || !form.email || !form.password) { setError('Please fill in all fields.'); return }
+                                        setError(null)
+                                        setStep(2)
+                                    }}
                                     type="button"
                                 >
                                     Continue
@@ -92,34 +131,15 @@ export default function RegisterPage() {
 
                     {step === 2 && (
                         <>
-                            <h2 style={{
-                                fontFamily: 'var(--font-display)',
-                                fontSize: '1.75rem',
-                                fontWeight: 400,
-                                marginBottom: '8px',
-                                color: 'var(--color-charcoal-dark)',
-                            }}>
+                            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.75rem', fontWeight: 400, marginBottom: '8px', color: 'var(--color-charcoal-dark)' }}>
                                 Before we begin…
                             </h2>
                             <p style={{ color: 'var(--color-soft-gray)', marginBottom: '32px', fontWeight: 300 }}>
                                 Please read this carefully. Your trust matters deeply to us.
                             </p>
-
-                            <div style={{
-                                background: 'var(--color-cream-dark)',
-                                borderRadius: 'var(--radius-md)',
-                                padding: '24px',
-                                marginBottom: '24px',
-                                border: '1px solid var(--color-charcoal-6)',
-                            }}>
+                            <div style={{ background: 'var(--color-cream-dark)', borderRadius: 'var(--radius-md)', padding: '24px', marginBottom: '24px', border: '1px solid var(--color-charcoal-6)' }}>
                                 <h4 style={{ marginBottom: '12px', color: 'var(--color-charcoal)' }}>Your privacy is protected</h4>
-                                <ul style={{
-                                    color: 'var(--color-soft-gray)',
-                                    fontSize: 'var(--text-sm)',
-                                    lineHeight: 1.8,
-                                    paddingLeft: '20px',
-                                    fontWeight: 300,
-                                }}>
+                                <ul style={{ color: 'var(--color-soft-gray)', fontSize: 'var(--text-sm)', lineHeight: 1.8, paddingLeft: '20px', fontWeight: 300 }}>
                                     <li>Your reflections and therapy notes are completely private</li>
                                     <li>University administrators cannot access your personal data</li>
                                     <li>Your participation does not affect your academic standing</li>
@@ -127,42 +147,26 @@ export default function RegisterPage() {
                                     <li>This platform is not a substitute for emergency services</li>
                                 </ul>
                             </div>
-
-                            <label style={{
-                                display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: '12px',
-                                cursor: 'pointer',
-                                marginBottom: '24px',
-                            }}>
-                                <input
-                                    type="checkbox"
-                                    checked={agreed}
-                                    onChange={e => setAgreed(e.target.checked)}
-                                    style={{ marginTop: '3px', accentColor: 'var(--color-sage)', width: '16px', height: '16px' }}
-                                />
+                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', cursor: 'pointer', marginBottom: '24px' }}>
+                                <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
+                                    style={{ marginTop: '3px', accentColor: 'var(--color-sage)', width: '16px', height: '16px' }} />
                                 <span style={{ color: 'var(--color-charcoal)', fontSize: 'var(--text-sm)', lineHeight: 1.6, fontWeight: 300 }}>
                                     I have read and agree to the privacy policy and informed consent. I understand this is a support tool, not for emergencies.
                                 </span>
                             </label>
-
+                            {error && <p style={{ color: '#c0392b', fontSize: 'var(--text-sm)', marginBottom: '16px', textAlign: 'center' }}>{error}</p>}
                             <div style={{ display: 'flex', gap: '12px' }}>
-                                <button className="btn btn-ghost" onClick={() => setStep(1)} type="button"
-                                    style={{ flex: 1, justifyContent: 'center' }}>
+                                <button className="btn btn-ghost" onClick={() => setStep(1)} type="button" style={{ flex: 1, justifyContent: 'center' }}>
                                     Back
                                 </button>
                                 <button
                                     className="btn btn-primary"
-                                    disabled={!agreed}
-                                    type="submit"
-                                    style={{
-                                        flex: 2,
-                                        justifyContent: 'center',
-                                        opacity: agreed ? 1 : 0.5,
-                                        cursor: agreed ? 'pointer' : 'not-allowed',
-                                    }}
+                                    disabled={!agreed || loading}
+                                    type="button"
+                                    onClick={handleSubmit}
+                                    style={{ flex: 2, justifyContent: 'center', opacity: agreed && !loading ? 1 : 0.5, cursor: agreed && !loading ? 'pointer' : 'not-allowed' }}
                                 >
-                                    Create my account
+                                    {loading ? 'Creating account…' : 'Create my account'}
                                 </button>
                             </div>
                         </>

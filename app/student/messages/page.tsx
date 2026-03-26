@@ -3,63 +3,75 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-// Hardcoded IDs from our seed script to bypass actual auth flow
-const STUDENT_ID = '11111111-1111-1111-1111-111111111111'
-const PSYCHOLOGIST_ID = '22222222-2222-2222-2222-222222222222'
-const THREAD_ID = '33333333-3333-3333-3333-333333333333'
-
 export default function MessagesPage() {
     const [newMessage, setNewMessage] = useState('')
     const [messages, setMessages] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+    const [userId, setUserId] = useState<string | null>(null)
+    const [recipientId, setRecipientId] = useState<string | null>(null)
+    const [threadId, setThreadId] = useState<string | null>(null)
     const supabase = createClient()
 
     useEffect(() => {
-        const fetchMessages = async () => {
-            const { data, error } = await supabase
+        const init = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) { setLoading(false); return }
+
+            setUserId(user.id)
+
+            // Find their assigned psychologist
+            const { data: assignment } = await supabase
+                .from('assignments')
+                .select('psychologist_id')
+                .eq('student_id', user.id)
+                .eq('is_active', true)
+                .single()
+
+            const psyId = assignment?.psychologist_id || null
+            setRecipientId(psyId)
+
+            // Stable thread ID from sorted UUIDs
+            const tId = psyId ? [user.id, psyId].sort().join('-') : null
+            setThreadId(tId)
+
+            if (!tId) { setLoading(false); return }
+
+            // Fetch messages for this thread
+            const { data } = await supabase
                 .from('messages')
                 .select('*')
-                .eq('thread_id', THREAD_ID)
+                .eq('thread_id', tId)
                 .order('created_at', { ascending: true })
 
-            if (data) {
-                setMessages(data)
-            }
+            if (data) setMessages(data)
             setLoading(false)
-        }
-        
-        // Initial fetch
-        fetchMessages()
 
-        // Realtime subscription
-        const channel = supabase.channel('realtime messages')
-            .on('postgres_changes', {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'messages',
-                filter: `thread_id=eq.${THREAD_ID}`,
-            }, (payload) => {
-                setMessages(current => [...current, payload.new])
-            })
-            .subscribe()
+            // Realtime subscription
+            const channel = supabase.channel('realtime-messages')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'messages',
+                    filter: `thread_id=eq.${tId}`,
+                }, (payload: any) => {
+                    setMessages(current => [...current, payload.new])
+                })
+                .subscribe()
 
-        return () => {
-            supabase.removeChannel(channel)
+            return () => { supabase.removeChannel(channel) }
         }
+        init()
     }, [supabase])
 
     const handleSend = async () => {
-        if (!newMessage.trim()) return
-
-        // Optimistic UI update could go here, but with realtime we can also just wait
+        if (!newMessage.trim() || !userId || !recipientId || !threadId) return
         const content = newMessage.trim()
-        setNewMessage('') // Clear input quickly
-
+        setNewMessage('')
         await supabase.from('messages').insert({
-            sender_id: STUDENT_ID,
-            recipient_id: PSYCHOLOGIST_ID,
-            thread_id: THREAD_ID,
-            content: content
+            sender_id: userId,
+            recipient_id: recipientId,
+            thread_id: threadId,
+            content,
         })
     }
 
@@ -88,66 +100,53 @@ export default function MessagesPage() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
                 }}>👩‍⚕️</div>
                 <div>
-                    <p style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>Dr. Sarah Williams</p>
+                    <p style={{ fontWeight: 500, fontSize: 'var(--text-sm)' }}>Your Care Team</p>
                     <p style={{ color: 'var(--color-soft-gray)', fontSize: 'var(--text-xs)', fontWeight: 300 }}>
-                        Clinical Psychologist · Replies within 24 hours on weekdays
+                        {recipientId ? 'Connected · Replies within 24 hours on weekdays' : 'No psychologist assigned yet'}
                     </p>
                 </div>
-                <span className="status-tag status-improving" style={{ marginLeft: 'auto' }}>Active</span>
+                <span className="status-tag status-improving" style={{ marginLeft: 'auto' }}>{recipientId ? 'Active' : 'Pending'}</span>
             </div>
 
             {/* Messages */}
-            <div style={{
-                flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px',
-                padding: '4px 0', marginBottom: '20px',
-            }}>
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px', padding: '4px 0', marginBottom: '20px' }}>
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-soft-gray)' }}>Loading messages...</div>
+                ) : !recipientId ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-soft-gray)' }}>
+                        You have not been assigned a psychologist yet. Please check back soon.
+                    </div>
+                ) : messages.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-soft-gray)' }}>
+                        No messages yet. Send a message to start the conversation!
+                    </div>
                 ) : messages.map(msg => {
-                    const isStudent = msg.sender_id === STUDENT_ID
+                    const isStudent = msg.sender_id === userId
                     return (
-                        <div key={msg.id} style={{
-                            display: 'flex', flexDirection: 'column',
-                            alignItems: isStudent ? 'flex-end' : 'flex-start',
-                        }}>
+                        <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isStudent ? 'flex-end' : 'flex-start' }}>
                             <div style={{
-                                maxWidth: '75%',
-                                padding: '14px 18px',
-                                borderRadius: isStudent
-                                    ? '16px 16px 4px 16px'
-                                    : '16px 16px 16px 4px',
+                                maxWidth: '75%', padding: '14px 18px',
+                                borderRadius: isStudent ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                                 background: isStudent ? 'var(--color-sage)' : 'var(--color-cream-dark)',
                                 border: isStudent ? 'none' : '1px solid var(--color-charcoal-6)',
                                 color: isStudent ? 'white' : 'var(--color-charcoal)',
-                                fontSize: 'var(--text-sm)',
-                                lineHeight: 1.6,
+                                fontSize: 'var(--text-sm)', lineHeight: 1.6,
                             }}>
                                 {msg.content}
                             </div>
-                            <p style={{
-                                fontSize: '11px',
-                                color: 'var(--color-soft-gray)',
-                                marginTop: '4px',
-                                fontWeight: 300,
-                            }}>
+                            <p style={{ fontSize: '11px', color: 'var(--color-soft-gray)', marginTop: '4px', fontWeight: 300 }}>
                                 {new Date(msg.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                 {msg.is_read && isStudent && ' · Read ✓'}
                             </p>
                         </div>
                     )
                 })}
-                {!loading && messages.length === 0 && (
-                     <div style={{ textAlign: 'center', padding: '20px', color: 'var(--color-soft-gray)' }}>No messages yet. Send a message to start the conversation!</div>
-                )}
             </div>
 
             {/* Input */}
             <div style={{
-                display: 'flex', gap: '12px', alignItems: 'flex-end',
-                padding: '16px',
-                background: 'var(--color-cream-dark)',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--color-charcoal-6)',
+                display: 'flex', gap: '12px', alignItems: 'flex-end', padding: '16px',
+                background: 'var(--color-cream-dark)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-charcoal-6)',
             }}>
                 <textarea
                     className="input"
@@ -156,12 +155,13 @@ export default function MessagesPage() {
                     value={newMessage}
                     onChange={e => setNewMessage(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                    disabled={!recipientId}
                 />
                 <button
                     className="btn btn-primary"
                     onClick={handleSend}
-                    disabled={!newMessage.trim()}
-                    style={{ flexShrink: 0, opacity: newMessage.trim() ? 1 : 0.5 }}
+                    disabled={!newMessage.trim() || !recipientId}
+                    style={{ flexShrink: 0, opacity: newMessage.trim() && recipientId ? 1 : 0.5 }}
                 >
                     Send
                 </button>
