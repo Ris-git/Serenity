@@ -1,7 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
     { href: '/psychologist', label: 'Dashboard', emoji: '🩺' },
@@ -10,6 +12,25 @@ const navItems = [
 
 export default function PsychologistLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
+    const router = useRouter()
+    const [userName, setUserName] = useState<string | null>(null)
+    const supabase = createClient()
+
+    useEffect(() => {
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Psychologist'
+                setUserName(name)
+            }
+        }
+        getUser()
+    }, [supabase])
+
+    const handleSignOut = async () => {
+        await supabase.auth.signOut()
+        router.push('/auth/login')
+    }
 
     return (
         <div className="app-shell">
@@ -27,13 +48,10 @@ export default function PsychologistLayout({ children }: { children: React.React
                     </Link>
                 </div>
 
-                <div style={{
-                    padding: '12px 24px', margin: '0 12px 16px',
-                    background: 'var(--color-sage-5)', borderRadius: 'var(--radius-md)',
-                }}>
+                <div style={{ padding: '12px 24px', margin: '0 12px 16px', background: 'var(--color-sage-5)', borderRadius: 'var(--radius-md)' }}>
                     <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-soft-gray)', fontWeight: 300 }}>Signed in as</p>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-charcoal)', fontWeight: 500, marginTop: '2px' }}>Dr. Sarah Williams</p>
-                    <p style={{ fontSize: '11px', color: 'var(--color-soft-gray)', fontWeight: 300 }}>Clinical Psychologist</p>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-charcoal)', fontWeight: 500, marginTop: '2px' }}>{userName || '…'}</p>
+                    <p style={{ fontSize: '11px', color: 'var(--color-soft-gray)', fontWeight: 300 }}>Psychologist</p>
                 </div>
 
                 <nav style={{ flex: 1, padding: '0 12px' }}>
@@ -56,7 +74,12 @@ export default function PsychologistLayout({ children }: { children: React.React
                 </nav>
 
                 <div style={{ padding: '16px 24px', borderTop: '1px solid var(--color-charcoal-6)', marginTop: 'auto' }}>
-                    <Link href="/auth/login" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-soft-gray)' }}>Sign out</Link>
+                    <button
+                        onClick={handleSignOut}
+                        style={{ fontSize: 'var(--text-xs)', color: 'var(--color-soft-gray)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                        Sign out
+                    </button>
                 </div>
             </aside>
 

@@ -1,10 +1,32 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
+    const router = useRouter()
+    const [userName, setUserName] = useState<string | null>(null)
+    const supabase = createClient()
+
+    useEffect(() => {
+        const getUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Admin'
+                setUserName(name)
+            }
+        }
+        getUser()
+    }, [supabase])
+
+    const handleSignOut = async () => {
+        await supabase.auth.signOut()
+        router.push('/auth/login')
+    }
+
     return (
         <div className="app-shell">
             <aside className="sidebar">
@@ -21,12 +43,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     </Link>
                 </div>
 
-                <div style={{
-                    padding: '12px 24px', margin: '0 12px 16px',
-                    background: 'var(--color-sage-5)', borderRadius: 'var(--radius-md)',
-                }}>
+                <div style={{ padding: '12px 24px', margin: '0 12px 16px', background: 'var(--color-sage-5)', borderRadius: 'var(--radius-md)' }}>
                     <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-soft-gray)', fontWeight: 300 }}>Signed in as</p>
-                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-charcoal)', fontWeight: 500, marginTop: '2px' }}>Admin</p>
+                    <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-charcoal)', fontWeight: 500, marginTop: '2px' }}>{userName || '…'}</p>
                     <p style={{ fontSize: '11px', color: 'var(--color-soft-gray)', fontWeight: 300 }}>University Administration</p>
                 </div>
 
@@ -46,17 +65,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                 <div style={{ padding: '16px 24px', borderTop: '1px solid var(--color-charcoal-6)', marginTop: 'auto' }}>
                     <div style={{
-                        padding: '10px 12px',
-                        background: 'rgba(201,197,224,0.1)',
-                        borderRadius: 'var(--radius-md)',
-                        fontSize: 'var(--text-xs)',
-                        color: 'var(--color-soft-gray)',
-                        lineHeight: 1.5,
-                        marginBottom: '12px',
+                        padding: '10px 12px', background: 'rgba(201,197,224,0.1)',
+                        borderRadius: 'var(--radius-md)', fontSize: 'var(--text-xs)',
+                        color: 'var(--color-soft-gray)', lineHeight: 1.5, marginBottom: '12px',
                     }}>
                         🔒 Admin view shows aggregated data only. No personal student data is accessible here.
                     </div>
-                    <Link href="/auth/login" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-soft-gray)' }}>Sign out</Link>
+                    <button
+                        onClick={handleSignOut}
+                        style={{ fontSize: 'var(--text-xs)', color: 'var(--color-soft-gray)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                        Sign out
+                    </button>
                 </div>
             </aside>
             <main className="main-content animate-fade-up">{children}</main>

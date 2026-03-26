@@ -19,36 +19,22 @@ export default function RegisterPage() {
         setLoading(true)
         setError(null)
 
-        const { data, error: signUpError } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
             email: form.email,
             password: form.password,
+            options: {
+                data: { full_name: form.name, role: form.role }
+            }
         })
 
-        if (signUpError || !data.user) {
-            setError(signUpError?.message || 'Sign up failed. Please try again.')
+        if (signUpError) {
+            setError(signUpError.message)
             setLoading(false)
             return
         }
 
-        const { error: profileError } = await supabase.from('profiles').insert({
-            id: data.user.id,
-            full_name: form.name,
-            email: form.email,
-            role: form.role,
-        })
-
-        if (profileError) {
-            setError('Account created but profile setup failed. Please contact support.')
-            setLoading(false)
-            return
-        }
-
-        const roleRoutes: Record<string, string> = {
-            student: '/student',
-            psychologist: '/psychologist',
-            trainee: '/psychologist',
-        }
-        router.push(roleRoutes[form.role] || '/student')
+        // Redirect — simple default to student for now
+        router.push('/student')
     }
 
     return (

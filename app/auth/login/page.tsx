@@ -29,20 +29,15 @@ export default function LoginPage() {
             return
         }
 
-        // Fetch the user's profile to get their role
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', data.user.id)
-            .single()
-
+        // Read role from user metadata (stored at sign-up)
+        const role = data.user.user_metadata?.role || 'student'
         const roleRoutes: Record<string, string> = {
             student: '/student',
             psychologist: '/psychologist',
             trainee: '/psychologist',
             admin: '/admin',
         }
-        router.push(profile?.role ? (roleRoutes[profile.role] || '/student') : '/student')
+        router.push(roleRoutes[role] || '/student')
     }
 
     const demoAccounts = [
