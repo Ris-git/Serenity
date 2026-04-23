@@ -6,6 +6,8 @@
 
 Serenity is a modern, compassionate mental health platform designed specifically for university environments. It prioritizes emotional safety, privacy, and proactive care through a "Soft Organic Minimalism" design philosophy, moving away from clinical or corporate aesthetics to create a digital sanctuary for students.
 
+[**Live Demo**](https://serenity-dfh43d1f1-rishabhs-projects-2cd9f0dc.vercel.app/)
+
 ---
 
 ## ✨ The Vision
@@ -94,21 +96,6 @@ Serenity has been upgraded from a static prototype to a production-ready authent
    ```bash
    npm run dev
    ```
-
----
-
-## 🧪 Try the Prototype Demo
-
-Want to see Serenity's UI populated with rich data without registering an account? 
-
-We maintain dedicated **`/demo`** routes that intentionally bypass Supabase authentication to showcase the platform's vision using beautiful mock data components.
-
-You can explore these directly from the "Demo Accounts" section on the login page:
-- **[Student Demo Dashboard](/demo/student)**
-- **[Psychologist Demo Dashboard](/demo/psychologist)**
-- **[Admin Demo Dashboard](/demo/admin)**
-
-*(Note: Real accounts created via sign-up will hit the protected routes and see their own clean, empty dashboard states).*
 
 ---
 
